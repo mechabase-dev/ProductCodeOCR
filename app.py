@@ -181,15 +181,20 @@ def process_image_with_both_ocr(image_path):
     gemini_result = process_image_gemini(image_path)
 
     if paddle_result == gemini_result:
-        print("結果が一致しました。")
+        print(f"結果が一致しました。 (PaddleOCR: {paddle_result}, Gemini: {gemini_result})")
         return paddle_result
     else:
-        print("結果が異なりました。")
+        # 結果の詳細を表示
+        paddle_display = paddle_result if paddle_result else "(なし)"
+        gemini_display = gemini_result if gemini_result else "(なし)"
+        print(f"結果が異なりました。 PaddleOCR: {paddle_display}, Gemini: {gemini_display}")
+        
         if paddle_result and not gemini_result:
             return paddle_result
         elif gemini_result and not paddle_result:
             return gemini_result
         else:
+            # 両方とも結果がある場合はPaddleOCRを優先
             return paddle_result
 
 def write_results_to_csv(results, csv_file):
