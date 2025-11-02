@@ -24,7 +24,11 @@ def process_image_paddle(image_path):
     logging.getLogger('ppocr').setLevel(logging.WARNING)
 
     # OCRモデルの読み込み
-    ocr = PaddleOCR(use_angle_cls=True, lang='en')
+    try:
+        ocr = PaddleOCR(lang='en')
+    except Exception as e:
+        logging.error(f"PaddleOCR初期化エラー: {e}")
+        return ""
 
     # 画像を開く
     image = Image.open(image_path)
