@@ -40,18 +40,33 @@ def process_image_paddle(image_path):
     # Image オブジェクトから np.ndarray に変換
     img_arr = np.array(top_third)
 
-    # 変換した画像に対してOCR処理
-    result = ocr.ocr(img_arr, cls=True)
+    # 変換した画像に対してOCR処理（新しいAPIではpredictを使用）
+    try:
+        # 新しいAPIではpredictメソッドを使用
+        result = ocr.predict(img_arr)
+    except AttributeError:
+        # 旧APIとの互換性のため
+        result = ocr.ocr(img_arr)
 
     # 結果の処理
-    for image_result in result:
-        for line in image_result:
-            text_conf = line[1]
-            text = text_conf[0]
-            
-            # 5桁の英字のみ抽出
-            if re.match(r'^[A-Z0-9]{5}', text):
-                return text[:5]
+    # 新しいAPIの戻り値形式（辞書のリスト）
+    if isinstance(result, list) and len(result) > 0:
+        if isinstance(result[0], dict):
+            # 新しい形式: result[0]['rec_texts']にテキストが入っている
+            rec_texts = result[0].get('rec_texts', [])
+            for text in rec_texts:
+                if text and re.match(r'^[A-Z0-9]{5}', text):
+                    return text[:5]
+        else:
+            # 旧形式: resultはネストされたリスト
+            for image_result in result:
+                for line in image_result:
+                    text_conf = line[1]
+                    text = text_conf[0]
+                    
+                    # 5桁の英字のみ抽出
+                    if re.match(r'^[A-Z0-9]{5}', text):
+                        return text[:5]
 
     return ""
 
