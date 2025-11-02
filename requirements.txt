@@ -1,0 +1,6 @@
+google-generativeai
+paddleocr
+Pillow
+numpy
+python-dotenv
+
