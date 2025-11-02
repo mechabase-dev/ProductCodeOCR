@@ -131,7 +131,49 @@ def process_image_gemini(image_path):
             {"mime_type": "image/png", "data": img_bytes.getvalue()}
         ])
         
-        result_text = response.text.strip()
+        # レスポンスの有効性をチェック
+        if not response.candidates:
+            logging.warning("Gemini API: レスポンスにcandidatesがありません")
+            return ""
+        
+        candidate = response.candidates[0]
+        
+        # finish_reasonをチェック（文字列または数値の可能性がある）
+        finish_reason = getattr(candidate, 'finish_reason', None)
+        if finish_reason:
+            # finish_reasonが数値の場合は文字列に変換
+            if isinstance(finish_reason, int):
+                finish_reason_map = {
+                    0: "STOP",
+                    1: "MAX_TOKENS", 
+                    2: "SAFETY",
+                    3: "RECITATION",
+                    4: "OTHER"
+                }
+                reason = finish_reason_map.get(finish_reason, "UNKNOWN")
+            else:
+                reason = str(finish_reason)
+            
+            # STOP以外の場合のみ警告
+            if reason not in ("STOP", "0", "stop"):
+                logging.warning(f"Gemini API: finish_reason={finish_reason} ({reason})")
+        
+        # partsの存在をチェック
+        if not candidate.content or not candidate.content.parts:
+            logging.warning("Gemini API: レスポンスにpartsがありません")
+            return ""
+        
+        # テキストが存在するかチェック
+        first_part = candidate.content.parts[0]
+        if not hasattr(first_part, 'text') or not first_part.text:
+            logging.warning("Gemini API: レスポンスにテキストが含まれていません")
+            return ""
+        
+        # テキストを取得
+        result_text = first_part.text.strip()
+        
+        if not result_text:
+            return ""
         
         # 5桁の英数字を抽出
         match = re.search(r'[A-Z0-9]{5}', result_text)
