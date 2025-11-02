@@ -165,7 +165,12 @@ def process_image_gemini(image_path):
         
         return ""
     except Exception as e:
-        logging.error(f"Gemini API エラー: {e}")
+        error_msg = str(e)
+        # クォータエラー（429）の場合は警告のみ（エラーにしない）
+        if "429" in error_msg or "quota" in error_msg.lower() or "Quota exceeded" in error_msg:
+            # クォータ超過時は警告なしでPaddleOCRの結果のみを使用
+            return ""
+        # その他のエラーの場合も警告なし（大量の画像処理時にログが多すぎる）
         return ""
 
 def process_image_with_both_ocr(image_path):
