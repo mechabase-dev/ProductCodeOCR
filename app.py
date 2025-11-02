@@ -20,21 +20,46 @@ except ImportError:
 
 IMAGE_CROP_SIZE = 3
 
-def process_image_paddle(image_path):
-    # paddleOCR関連のロガーのレベルを設定してメッセージを抑制
-    logging.getLogger('ppocr').setLevel(logging.ERROR)
-    logging.getLogger('paddlex').setLevel(logging.ERROR)
-    # カラー出力を抑制するため、環境変数も設定
-    os.environ['PADDLEX_LOG_LEVEL'] = 'ERROR'
-    os.environ['COLORLOG_LEVEL'] = 'ERROR'
+# グローバル変数でPaddleOCRとGeminiモデルを保持（再利用のため）
+_ocr_instance = None
+_gemini_model = None
 
-    # OCRモデルの読み込み（標準出力を抑制）
-    try:
-        # 標準出力を一時的に抑制
-        with contextlib.redirect_stdout(io.StringIO()):
-            ocr = PaddleOCR(lang='en')
-    except Exception as e:
-        logging.error(f"PaddleOCR初期化エラー: {e}")
+def get_ocr_instance():
+    """PaddleOCRインスタンスを取得（遅延初期化）"""
+    global _ocr_instance
+    if _ocr_instance is None:
+        # paddleOCR関連のロガーのレベルを設定してメッセージを抑制
+        logging.getLogger('ppocr').setLevel(logging.ERROR)
+        logging.getLogger('paddlex').setLevel(logging.ERROR)
+        # カラー出力を抑制するため、環境変数も設定
+        os.environ['PADDLEX_LOG_LEVEL'] = 'ERROR'
+        os.environ['COLORLOG_LEVEL'] = 'ERROR'
+        
+        # OCRモデルの読み込み（標準出力を抑制）
+        try:
+            # 標準出力を一時的に抑制
+            with contextlib.redirect_stdout(io.StringIO()):
+                _ocr_instance = PaddleOCR(lang='en')
+        except Exception as e:
+            logging.error(f"PaddleOCR初期化エラー: {e}")
+            return None
+    return _ocr_instance
+
+def get_gemini_model():
+    """Geminiモデルを取得（遅延初期化）"""
+    global _gemini_model
+    if _gemini_model is None:
+        api_key = os.environ.get('GEMINI_API_KEY')
+        if not api_key:
+            return None
+        genai.configure(api_key=api_key)
+        _gemini_model = genai.GenerativeModel('gemini-2.5-flash')
+    return _gemini_model
+
+def process_image_paddle(image_path):
+    # 再利用可能なOCRインスタンスを取得
+    ocr = get_ocr_instance()
+    if ocr is None:
         return ""
 
     # 画像を開く
@@ -78,18 +103,11 @@ def process_image_paddle(image_path):
     return ""
 
 def process_image_gemini(image_path):
-    # Gemini APIクライアントの設定
-    # 環境変数 GEMINI_API_KEY から取得
-    api_key = os.environ.get('GEMINI_API_KEY')
-    
-    if not api_key:
+    # 再利用可能なGeminiモデルを取得
+    model = get_gemini_model()
+    if model is None:
         logging.warning("GEMINI_API_KEY が設定されていません。Gemini APIを使用できません。")
         return ""
-    
-    genai.configure(api_key=api_key)
-    
-    # モデルの選択（gemini-2.5-flash は高速でコスト効率が良い）
-    model = genai.GenerativeModel('gemini-2.5-flash')
     
     # 画像の上1/3を切り抜く
     image = Image.open(image_path)
@@ -167,6 +185,24 @@ if __name__ == "__main__":
         sys.exit(1)
 
     image_dir = sys.argv[1]
+    
+    # PaddleOCRとGeminiを事前に初期化（最初の1回だけ）
+    print("PaddleOCRを初期化中...")
+    ocr = get_ocr_instance()
+    if ocr:
+        print("PaddleOCRの初期化が完了しました。")
+    else:
+        print("警告: PaddleOCRの初期化に失敗しました。")
+    
+    if os.environ.get('GEMINI_API_KEY'):
+        print("Gemini APIを初期化中...")
+        model = get_gemini_model()
+        if model:
+            print("Gemini APIの初期化が完了しました。")
+    else:
+        print("GEMINI_API_KEYが設定されていないため、Gemini APIは使用しません。")
+    
+    print(f"\n{image_dir} 内の画像を処理中...\n")
 
     # ディレクトリ内の画像ファイルを名前でソート
     image_files = sorted(os.listdir(image_dir))
