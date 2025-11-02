@@ -1,6 +1,7 @@
 import os
 import sys
 import io
+import contextlib
 import google.generativeai as genai
 from paddleocr import PaddleOCR
 import logging
@@ -20,12 +21,18 @@ except ImportError:
 IMAGE_CROP_SIZE = 3
 
 def process_image_paddle(image_path):
-    # paddleOCRのロガーのレベルをWARNINGに設定
-    logging.getLogger('ppocr').setLevel(logging.WARNING)
+    # paddleOCR関連のロガーのレベルを設定してメッセージを抑制
+    logging.getLogger('ppocr').setLevel(logging.ERROR)
+    logging.getLogger('paddlex').setLevel(logging.ERROR)
+    # カラー出力を抑制するため、環境変数も設定
+    os.environ['PADDLEX_LOG_LEVEL'] = 'ERROR'
+    os.environ['COLORLOG_LEVEL'] = 'ERROR'
 
-    # OCRモデルの読み込み
+    # OCRモデルの読み込み（標準出力を抑制）
     try:
-        ocr = PaddleOCR(lang='en')
+        # 標準出力を一時的に抑制
+        with contextlib.redirect_stdout(io.StringIO()):
+            ocr = PaddleOCR(lang='en')
     except Exception as e:
         logging.error(f"PaddleOCR初期化エラー: {e}")
         return ""
@@ -146,6 +153,14 @@ def write_results_to_csv(results, csv_file):
 
 
 if __name__ == "__main__":
+    # PaddleOCR/PaddleXのメッセージを抑制
+    logging.getLogger('ppocr').setLevel(logging.ERROR)
+    logging.getLogger('paddlex').setLevel(logging.ERROR)
+    os.environ['PADDLEX_LOG_LEVEL'] = 'ERROR'
+    # 標準出力へのPaddleXメッセージも抑制
+    import warnings
+    warnings.filterwarnings('ignore')
+    
     # 引数からフォルダのパスを取得
     if len(sys.argv) < 2:
         print("Usage: python script.py <image_directory>")
