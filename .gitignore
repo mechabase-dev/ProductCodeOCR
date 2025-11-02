@@ -39,6 +39,9 @@ wheels/
 # CSV出力ファイル
 *.csv
 
+# 画像ファイル
+images/
+
 # OS
 .DS_Store
 Thumbs.db
