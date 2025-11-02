@@ -139,24 +139,7 @@ def process_image_gemini(image_path):
         candidate = response.candidates[0]
         
         # finish_reasonをチェック（文字列または数値の可能性がある）
-        finish_reason = getattr(candidate, 'finish_reason', None)
-        if finish_reason:
-            # finish_reasonが数値の場合は文字列に変換
-            if isinstance(finish_reason, int):
-                finish_reason_map = {
-                    0: "STOP",
-                    1: "MAX_TOKENS", 
-                    2: "SAFETY",
-                    3: "RECITATION",
-                    4: "OTHER"
-                }
-                reason = finish_reason_map.get(finish_reason, "UNKNOWN")
-            else:
-                reason = str(finish_reason)
-            
-            # STOP以外の場合のみ警告
-            if reason not in ("STOP", "0", "stop"):
-                logging.warning(f"Gemini API: finish_reason={finish_reason} ({reason})")
+        # 警告ログは表示しない（正常に処理できる場合は無視）
         
         # partsの存在をチェック
         if not candidate.content or not candidate.content.parts:
